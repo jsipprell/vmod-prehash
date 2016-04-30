@@ -1,0 +1,8 @@
+$Module backmap 3 Varnish Backwards Mapping Director
+
+$Object director()
+$Method VOID .set_hash_header(STRING_LIST)
+$Method VOID .add_secondary_backend(BACKEND, REAL)
+$Method VOID add_primary_backend(BACKEND, STRING_LIST)
+$Method BACKEND .backend()
+
