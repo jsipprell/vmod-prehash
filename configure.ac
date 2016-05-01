@@ -1,14 +1,16 @@
 AC_PREREQ(2.59)
-AC_COPYRIGHT([Your mom]0
-AC_INIT([libvmod_backmap], [0.0.1])
+AC_COPYRIGHT([Your mom])
+AC_INIT([libvmod_prehash], [0.0.1])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build])
 m4_ifndef([VARNISH_VMOD_INCLUDES], AC_MSG_ERROR([Needs varnish m4 -- is MI-varnish41-devel installed?]))
-AM_CONFIG_HEADER(config.h)
+AM_CONFIG_HEADER(include/config.h)
 
 AC_CANONICAL_SYSTEM
 AC_LANG(C)
 
 AM_INIT_AUTOMAKE([foreign])
+AM_SILENT_RULES([yes])
 
 AC_GNU_SOURCE
 AC_PROG_CC

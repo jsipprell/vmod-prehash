@@ -1,0 +1,9 @@
+$Module prehash 3 Varnish Prehash Director w/ Overrides & Random Fallthrough
+
+$Object director()
+$Method VOID .set_hash_header(STRING_LIST)
+$Method VOID .add_backend(BACKEND, REAL)
+$Method VOID .add_hashed_backend(BACKEND, STRING_LIST)
+$Method VOID .add_lastresort_backend(BACKEND, REAL)
+$Method BACKEND .backend()
+$Method BACKEND .hash(STRING_LIST)
