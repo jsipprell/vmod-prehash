@@ -49,7 +49,9 @@ void voverride_new(struct voverride **vop, struct ws *ws,
 void
 voverride_delete(struct voverride **vop)
 {
+  unsigned u;
   struct voverride *vo;
+  struct vmapping *vm;
 
   AN(vop);
   vo = *vop;
@@ -57,6 +59,16 @@ voverride_delete(struct voverride **vop)
 
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
 
+  if (vo->mapping != NULL) {
+    for (u = 0; u < vo->n_backend; u++) {
+      vm = vo->mapping[u];
+      CHECK_OBJ_ORNULL(vm, VDIR_MAPPING_MAGIC);
+      if (vm != NULL) {
+        vmapping_delete(&vo->mapping[u]);
+      }
+    }
+  }
+  free(vo->mapping);
   free(vo->backend);
   free((void*)vo->names);
   free(vo->hashvals);
@@ -87,6 +99,7 @@ void voverride_unlock(struct voverride *vo)
 static
 void voverride_expand(struct voverride *vo, unsigned sz)
 {
+  unsigned u;
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
 
   vo->backend = realloc(vo->backend, sz * sizeof *vo->backend);
@@ -95,6 +108,14 @@ void voverride_expand(struct voverride *vo, unsigned sz)
   AN(vo->names);
   vo->hashvals = realloc(vo->hashvals, sz * sizeof *vo->hashvals);
   AN(vo->hashvals);
+  vo->mapping = realloc(vo->mapping, sz * sizeof *vo->mapping);
+  AN(vo->mapping);
+
+
+  if (sz > vo->l_backend) {
+    for (u = vo->l_backend; u < sz; u++)
+      vo->mapping[u] = NULL;
+  }
 
   vo->l_backend = sz;
 }
@@ -125,14 +146,41 @@ unsigned voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
   return u;
 }
 
+void voverride_create_mappings(struct voverride *vo, struct vdir *vd)
+{
+  struct SHA256Context sha_ctx;
+  struct vmapping *vm;
+  unsigned u;
+
+  CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
+  voverride_wrlock(vo);
+
+  for (u = 0; u < vo->n_backend; u++) {
+    SHA256_Init(&sha_ctx);
+    SHA256_Update(&sha_ctx, vo->names[u], strlen(vo->names[u]));
+    vm = vo->mapping[u];
+    if (vm != NULL) {
+      CHECK_OBJ_NOTNULL(vm, VDIR_MAPPING_MAGIC);
+      vmapping_delete(&vo->mapping[u]);
+    }
+    vmapping_new(&vm, 0);
+    vo->mapping[u] = vm;
+    vmapping_create_aliases(vm, vd, &sha_ctx);
+  }
+  voverride_unlock(vo);
+}
+
 VCL_BACKEND
-voverride_get_be(struct voverride *vo, double hv, const struct busyobj *bo, int *healthy)
+voverride_get_be(struct voverride *vo, double hv, const struct busyobj *bo, struct vmapping **vmp, int *healthy)
 {
   unsigned u;
   VCL_BACKEND be = NULL;
 
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
   CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
+
+  if (vmp != NULL)
+    *vmp = NULL;
 
   voverride_rdlock(vo);
   for (u = 0; u < vo->n_backend; u++) {
@@ -141,6 +189,8 @@ voverride_get_be(struct voverride *vo, double hv, const struct busyobj *bo, int 
       if (healthy) {
         *healthy = be->healthy(be, bo, NULL);
       }
+      if (vmp != NULL)
+        *vmp = vo->mapping[u];
       break;
     }
   }

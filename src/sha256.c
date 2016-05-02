@@ -24,19 +24,17 @@ static const unsigned char PAD[64] = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-extern void sha256update(struct SHA256Context *ctx, unsigned char digest[32]);
-
-void sha256update(struct SHA256Context *ctx, unsigned char digest[32])
+void sha256update(SHA256_CTX *ctx, const char *p, unsigned char *digest)
 {
-    unsigned char len[8];
-    uint32_t r, plen;
-
-    vbe64enc(len, ctx->count << 3);
-    r = ctx->count & 0x3f;
-    plen = (r < 64) ? (64 - r) : (128 - r);
-    if (plen > 0)
-      SHA256_Update(ctx, PAD, (size_t)plen);
-    memcpy(digest, ctx->state, sizeof digest);
+  if (p != NULL && *p)
+    SHA256_Update(ctx, p, strlen(p));
+  SHA256_Final(digest, ctx);
 }
 
+void sha256reset(SHA256_CTX *ctx, SHA256_CTX *base)
+{
+  ctx->count = base->count;
+  memcpy(ctx->state, base->state, sizeof ctx->state);
+  memcpy(ctx->buf, base->buf, sizeof ctx->buf);
+}
 
