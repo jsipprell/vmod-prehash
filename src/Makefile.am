@@ -8,7 +8,7 @@ notrans_man_MANS = vmod_prehash.3
 
 libvmod_prehash_la_LDFLAGS = $(AM_LDFLAGS) -module -export-dynamic -avoid-version -shared
 libvmod_prehash_la_SOURCES = vcc_prehash_if.c vcc_prehash_if.h vdir.c vdir.h \
-	prehash.c random.c roundrobin.c sha256.c \
+	prehash.c random.c roundrobin.c sha256.c override.c \
 	prehash.h
 
 vcc_prehash_if.c vcc_prehash_if.h: @VMODTOOL@ $(top_srcdir)/src/vmod_prehash.vcc
