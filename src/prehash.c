@@ -105,6 +105,7 @@ vmod_director_backend(VRT_CTX, struct vmod_prehash_director *rr)
 
   vdir_rdlock(rr->prevd);
   gethdr.what = rr->hdr ? rr->hdr : H_Host;
+  vdir_unlock(rr->prevd);
 
   VSL(SLT_Debug, 0, "prehash hash header is '%s'", gethdr.what+1);
   if ((ctx->method & (VCL_MET_BACKEND_FETCH|VCL_MET_BACKEND_RESPONSE|VCL_MET_BACKEND_ERROR))  != 0) {
@@ -120,7 +121,6 @@ vmod_director_backend(VRT_CTX, struct vmod_prehash_director *rr)
   }
 
   value = VRT_GetHdr(ctx, &gethdr);
-  vdir_unlock(rr->prevd);
 
   if (value != NULL) {
     int healthy = 0;
