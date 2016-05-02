@@ -168,33 +168,31 @@ vmod_director_set_hash_header(VRT_CTX, struct vmod_prehash_director *rr, const c
 {
   va_list ap;
   unsigned u;
-  struct ws *ws;
   txt t;
 
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
 
-  ws = (ctx->ws != NULL) ? ctx->ws : rr->ws;
-  CHECK_OBJ_NOTNULL(ws, WS_MAGIC);
+  CHECK_OBJ_NOTNULL(rr->ws, WS_MAGIC);
 
-  u = WS_Reserve(ws, 0);
-  t.b = ws->f;
+  u = WS_Reserve(rr->ws, 0);
+  t.b = rr->ws->f;
   va_start(ap, arg);
-  t.e = VRT_StringList(ws->f+1, u-2, arg, ap);
+  t.e = VRT_StringList(rr->ws->f+1, u-2, arg, ap);
   va_end(ap);
   if (t.e != NULL) {  
     assert(t.e > t.b);
     *((char*)t.e-1) = ':'; t.e++;
     *((char*)t.e-1) = 0; t.e++;
-    *ws->f = (char)strlen(ws->f+1);
-    WS_Release(ws, t.e - t.b);
+    *rr->ws->f = (char)strlen(rr->ws->f+1);
+    WS_Release(rr->ws, t.e - t.b);
     vdir_wrlock(rr->prevd);
     vdir_wrlock(rr->vd);
     rr->hdr = (const char*)t.b;
     vdir_unlock(rr->vd);
     vdir_unlock(rr->prevd);
   } else {
-    WS_Release(ws, 0);
+    WS_Release(rr->ws, 0);
   }
 }
 
