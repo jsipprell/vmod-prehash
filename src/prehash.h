@@ -18,7 +18,7 @@ struct vmapping {
 #define VDIR_MAPPING_MAGIC          0xff09462a
   unsigned          n_alias;
   unsigned          l_alias;
-  unsigned          *alias;
+  unsigned char     *alias;
 };
 
 struct vmod_prehash_director {

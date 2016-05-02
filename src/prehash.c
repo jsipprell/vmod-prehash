@@ -111,7 +111,6 @@ static double vcalchash(const char *arg, va_list ap)
   struct SHA256Context sha_ctx;
   const char *p;
   unsigned char sha256[SHA256_LEN];
-  uint32_t rv;
   double r;
 
   memset(&sha_ctx, 0, sizeof(sha_ctx));
@@ -123,8 +122,7 @@ static double vcalchash(const char *arg, va_list ap)
   }
   SHA256_Final(sha256, &sha_ctx);
 
-  rv = vbe32dec(&sha256[0]);
-  r = scalbn(rv, -32);
+  r = scalbn(vbe32dec(&sha256[0]), -32);
   assert(r >= 0 && r <= 1.0);
   return r;
 }
@@ -147,9 +145,9 @@ static double calchash(const char *data, ...)
   SHA256_Final(sha256, &sha_ctx);
 
   rv = vbe32dec(&sha256[0]);
-  VSL(SLT_Debug, 0, "vbe32dec(sha256) -> 0x%04x", rv);
   r = scalbn(rv, -32);
   assert(r >= 0 && r <= 1.0);
+  VSL(SLT_Debug, 0, "vbe32dec(sha256) -> 0x%04x / scalbn(-32) -> %f", rv, r);
   return r;
 }
 

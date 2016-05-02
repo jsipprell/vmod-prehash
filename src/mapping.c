@@ -28,13 +28,13 @@ void vmapping_expand(struct vmapping *vm, unsigned sz)
 }
 
 static
-unsigned push_alias(struct vmapping *vm, unsigned a)
+unsigned push_alias(struct vmapping *vm, unsigned char a)
 {
   unsigned u;
   CHECK_OBJ_NOTNULL(vm, VDIR_MAPPING_MAGIC);
 
   u = vm->n_alias;
-  if (u < vm->l_alias + 16) {
+  if (!vm->l_alias || u > vm->l_alias-2) {
     vmapping_expand(vm, vm->l_alias+16);
   }
   vm->alias[u++] = a;
