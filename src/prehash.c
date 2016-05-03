@@ -327,6 +327,7 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
   AN(rr);
   *rrp = rr;
   rr->ws = (struct ws*)&(rr->__scratch[0]);
+  // TODO: PRNDUP() the scratch area begin/end for alignment assuredness.
   WS_Init(rr->ws, "mii", &(rr->__scratch[0]) + sizeof(struct ws),
                        sizeof(rr->__scratch) - sizeof(struct ws));
 
