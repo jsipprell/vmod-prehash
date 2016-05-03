@@ -99,7 +99,6 @@ void voverride_unlock(struct voverride *vo)
 static
 void voverride_expand(struct voverride *vo, unsigned sz)
 {
-  unsigned u;
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
 
   vo->backend = realloc(vo->backend, sz * sizeof *vo->backend);
@@ -112,10 +111,8 @@ void voverride_expand(struct voverride *vo, unsigned sz)
   AN(vo->mapping);
 
 
-  if (sz > vo->l_backend) {
-    for (u = vo->l_backend; u < sz; u++)
-      vo->mapping[u] = NULL;
-  }
+  for (; vo->l_backend < sz; vo->l_backend++)
+    vo->mapping[vo->l_backend] = NULL;
 
   vo->l_backend = sz;
 }
