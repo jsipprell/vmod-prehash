@@ -9,3 +9,6 @@ $Method VOID .finalize()
 $Method BACKEND .backend()
 $Method BACKEND .self()
 $Method BACKEND .hash(STRING_LIST)
+
+$Object passthru(BACKEND)
+$Method BACKEND .backend()
