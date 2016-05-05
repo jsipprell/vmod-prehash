@@ -31,18 +31,17 @@ prehash_rr_resolve(const struct director *dir,
   CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_LASTRESORT_MAGIC);
-  vdir_wrlock(rr->vd);
+  vdir_rdlock(rr->vd);
   for (u = 0; u < rr->vd->n_backend; u++)  {
-    rr->nxt %= rr->vd->n_backend;
-    be = rr->vd->backend[rr->nxt];
+    be = rr->vd->backend[rr->nxt % rr->vd->n_backend];
     rr->nxt++;
     CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
     if (be->healthy(be, bo, NULL))
       break;
   }
-  vdir_unlock(rr->vd);
   if (u == rr->vd->n_backend)
     be = NULL;
+  vdir_unlock(rr->vd);
   return (be);
 }
 

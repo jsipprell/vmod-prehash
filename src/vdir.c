@@ -189,7 +189,7 @@ vdir_any_healthy(struct vdir *vd, const struct busyobj *bo, double *changed)
   return (retval);
 }
 
-static unsigned
+unsigned
 vdir_pick_by_weight(const struct vdir *vd, double w,
     const struct vbitmap *blacklist)
 {
