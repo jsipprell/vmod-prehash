@@ -27,6 +27,7 @@ prehash_healthy(const struct director *dir, const struct busyobj *bo, double *ch
   return (vdir_any_healthy(rr->vd, bo, changed));
 }
 
+/*
 static unsigned __match_proto__(vdi_healthy)
 prehash_override_healthy(const struct director *dir, const struct busyobj *bo, double *changed)
 {
@@ -49,6 +50,7 @@ prehash_override_healthy(const struct director *dir, const struct busyobj *bo, d
   voverride_unlock(rr->vo);
   return u;
 }
+*/
 
 static unsigned
 pick_by_weight(const struct vdir *vd, double w,
@@ -331,9 +333,8 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
                        sizeof(rr->__scratch) - sizeof(struct ws));
 
   
-  vdir_new(&rr->vd, "prehash", WS_Printf(rr->ws,"%s_prehash", vcl_name), prehash_healthy, prehash_random_resolve, rr);
-  voverride_new(&rr->vo, rr->ws, "prehash_override", WS_Printf(rr->ws,"%s_override", vcl_name), prehash_override_healthy, vmod_director_resolve, rr);
-
+  vdir_new(&rr->vd, "prehash", WS_Printf(rr->ws,"%s_random", vcl_name), prehash_healthy, prehash_random_resolve, rr);
+  voverride_new(&rr->vo, rr->ws, "prehash_override", WS_Printf(rr->ws,"%s_hashed", vcl_name), prehash_healthy, vmod_director_resolve, rr);
 
   lrr = (struct vmod_prehash_lastresort_director*)WS_Alloc(rr->ws, sizeof *lrr);
   INIT_OBJ(lrr, VMOD_PREHASH_LASTRESORT_MAGIC);
