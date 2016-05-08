@@ -109,21 +109,40 @@ lrvd_healthy(const struct director *dir, const struct busyobj *bo, double *chang
   return (vdir_any_healthy(rr->vd, bo, changed));
 }
 
-static double vcalchash(const char *arg, va_list ap)
+static double vcalchash(const char **dp, unsigned maxlen, const char *arg, va_list ap)
 {
   struct SHA256Context sha_ctx;
   unsigned char sha256[SHA256_LEN];
+  char *d;
   double r;
+  unsigned l;
+
+  d = dp ? (char*)*dp : NULL;
 
   SHA256_Init(&sha_ctx);
   for (; arg != vrt_magic_string_end; arg = va_arg(ap, const char*)) {
-    if (arg != NULL && *arg != '\0')
-      SHA256_Update(&sha_ctx, arg, strlen(arg));
+    if (arg != NULL && *arg != '\0') {
+      l = strlen(arg);
+      if (d) {
+        if (maxlen < l+1)
+          d = NULL;
+        else {
+          d = strcpy(d, arg) + l;
+          maxlen -= l;
+        }
+      }
+      SHA256_Update(&sha_ctx, arg, l);
+    }
   }
   SHA256_Final(sha256, &sha_ctx);
 
   r = scalbn(vbe32dec(&sha256[0]), -32);
   assert(r >= 0 && r <= 1.0);
+  if (d) {
+    *d = '\0';
+    *dp = d+1;
+  } else if (dp)
+    *dp = NULL;
   return r;
 }
 
@@ -259,7 +278,7 @@ vmod_director_hash(VRT_CTX, struct vmod_prehash_director *rr, const char *args, 
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
 
   va_start(ap, args);
-  r = vcalchash(args,ap);
+  r = vcalchash(NULL, 0, args, ap);
   va_end(ap);
 
   be = voverride_get_be(rr->vo, r, ctx->bo, NULL, &healthy);
@@ -373,16 +392,36 @@ vmod_director_add_hashed_backend(VRT_CTX, struct vmod_prehash_director *rr,
                                           VCL_BACKEND be, const char *arg, ...)
 {
   va_list ap;
+  unsigned u;
   double w;
+  txt t;
 
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
+  CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
+
+  voverride_wrlock(rr->vo);
+  u = WS_Reserve(rr->vo->ws, 0);
+  t.e = t.b = rr->vo->ws->f;
   va_start(ap, arg);
-  w = vcalchash(arg, ap);
+  w = vcalchash(&t.e, u-1, arg, ap);
   va_end(ap);
 
-  (void)voverride_add_backend(rr->vo, be, w, arg);
-  VSL(SLT_Debug, 0, "prehash backend override '%s' registered with hash value %f", be->vcl_name, w);
+  if (t.e) {
+    assert(t.e > t.b);
+    WS_Release(rr->vo->ws, t.e - t.b);
+    AZ(*(t.e-1));
+    if (voverride_add_backend(rr->vo, be, w, t.b) >= 0)
+      VSL(SLT_Debug, 0, "prehash backend override '%s' registered with hash value %f (%s)", be->vcl_name, w, t.b);
+  } else {
+    WS_Release(rr->vo->ws, 0);
+    if (ctx->msg)
+      VSB_printf(ctx->msg, "prehash: insufficent ws allocation available for new hashed backend (req=%u bytes)\n", u-1);
+    else
+      VSLb(ctx->vsl, SLT_VCL_Error, "prehash: insufficient ws allocation available for new hashed backend (req=%u bytes)", u-1);
+    VRT_handling(ctx, VCL_RET_FAIL);
+  }
+  voverride_unlock(rr->vo);
 }
 
 VCL_VOID __match_proto__(td_prehash_director_add_lastresort_backend)

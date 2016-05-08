@@ -130,29 +130,20 @@ void voverride_expand(struct voverride *vo, unsigned sz)
   vo->l_backend = sz;
 }
 
-unsigned voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
+int voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
                                double hv, const char *name)
 {
   unsigned u;
-  char *n;
 
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
-  voverride_wrlock(vo);
-  u = strlen(name);
-  n = WS_Alloc(vo->ws, u+1);
-  AN(n);
-  strcpy(n, name);
-  name = n;
 
   if (vo->n_backend >= vo->l_backend)
     voverride_expand(vo, vo->l_backend + 16);
   assert(vo->n_backend < vo->l_backend);
   u = vo->n_backend++;
   vo->backend[u] = be;
-  vo->names[u] = n;
+  vo->names[u] = name;
   vo->hashvals[u] = hv;
-  voverride_unlock(vo);
-
   return u;
 }
 
