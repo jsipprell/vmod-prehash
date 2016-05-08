@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "vcl.h"
+
 #include "cache/cache.h"
 #include "cache/cache_director.h"
 
@@ -317,6 +318,7 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
 {
   struct vmod_prehash_director *rr;
   struct vmod_prehash_lastresort_director *lrr;
+  unsigned char *s;
 
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   AN(rrp);
@@ -324,11 +326,10 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
   ALLOC_OBJ(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
   AN(rr);
   *rrp = rr;
-  rr->ws = (struct ws*)&(rr->__scratch[0]);
-  WS_Init(rr->ws, "mii", &(rr->__scratch[0]) + sizeof(struct ws),
-                       sizeof(rr->__scratch) - sizeof(struct ws));
+  rr->ws = (struct ws*)PRNDUP(&rr->__scratch[0]);
+  s = (unsigned char*)PRNDUP((char*)rr->ws + sizeof(struct ws));
+  WS_Init(rr->ws, "mii", s, sizeof(rr->__scratch) - (s - &rr->__scratch[0]));
 
-  
   vdir_new(&rr->vd, "prehash", WS_Printf(rr->ws,"%s_random", vcl_name), prehash_healthy, prehash_random_resolve, rr);
   voverride_new(&rr->vo, rr->ws, "prehash_override", WS_Printf(rr->ws,"%s_hashed", vcl_name), prehash_healthy, vmod_director_resolve, rr);
 

@@ -11,6 +11,7 @@ struct voverride {
   double             *hashvals;
   struct director       *dir;
   struct ws             *ws;
+  unsigned char         *scratch;
 };
 
 struct vmapping {
