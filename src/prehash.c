@@ -99,7 +99,6 @@ pick_be(struct vdir *vd, double w, const struct busyobj *bo, const struct vmappi
   return (be);
 }
 
-
 static unsigned __match_proto__(vdi_healthy)
 lrvd_healthy(const struct director *dir, const struct busyobj *bo, double *changed)
 {
@@ -112,16 +111,13 @@ lrvd_healthy(const struct director *dir, const struct busyobj *bo, double *chang
 static double vcalchash(const char *arg, va_list ap)
 {
   struct SHA256Context sha_ctx;
-  const char *p;
   unsigned char sha256[SHA256_LEN];
   double r;
 
-  memset(&sha_ctx, 0, sizeof(sha_ctx));
-  memset(sha256, 0, sizeof(sha256));
   SHA256_Init(&sha_ctx);
-  for (p = arg; p != vrt_magic_string_end; p = va_arg(ap, const char*)) {
-    if (p != NULL && *p != '\0')
-      SHA256_Update(&sha_ctx, p, strlen(p));
+  for (; arg != vrt_magic_string_end; arg = va_arg(ap, const char*)) {
+    if (arg != NULL && *arg != '\0')
+      SHA256_Update(&sha_ctx, arg, strlen(arg));
   }
   SHA256_Final(sha256, &sha_ctx);
 
@@ -207,7 +203,7 @@ vmod_director_resolve(const struct director *dir,
   return resolve(rr, value, bo);
 }
 
-VCL_BACKEND __match_proto__()
+VCL_BACKEND __match_proto__(td_prehash_director_self)
 vmod_director_self(VRT_CTX, struct vmod_prehash_director *rr)
 {
   struct gethdr_s gethdr;
@@ -240,7 +236,7 @@ vmod_director_self(VRT_CTX, struct vmod_prehash_director *rr)
 }
 
 
-VCL_BACKEND __match_proto__()
+VCL_BACKEND __match_proto__(td_prehash_director_backend)
 vmod_director_backend(VRT_CTX, struct vmod_prehash_director *rr)
 { 
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -250,7 +246,7 @@ vmod_director_backend(VRT_CTX, struct vmod_prehash_director *rr)
   return rr->vo->dir;
 }
 
-VCL_BACKEND __match_proto__()
+VCL_BACKEND __match_proto__(td_prehash_director_hash)
 vmod_director_hash(VRT_CTX, struct vmod_prehash_director *rr, const char *args, ...)
 {
   va_list ap;
@@ -273,7 +269,7 @@ vmod_director_hash(VRT_CTX, struct vmod_prehash_director *rr, const char *args, 
   return be;
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID __match_proto__(td_prehash_director_finalize)
 vmod_director_finalize(VRT_CTX, struct vmod_prehash_director *rr)
 {
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -282,7 +278,7 @@ vmod_director_finalize(VRT_CTX, struct vmod_prehash_director *rr)
   voverride_create_mappings(rr->vo, rr->vd);
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID __match_proto__(td_prehash_director_set_hash_header)
 vmod_director_set_hash_header(VRT_CTX, struct vmod_prehash_director *rr, const char *arg, ...)
 {
   va_list ap;

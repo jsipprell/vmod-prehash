@@ -17,13 +17,6 @@
 #include "vcc_prehash_if.h"
 #include "prehash.h"
 
-static const unsigned char PAD[64] = {
-        0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
 void sha256update(SHA256_CTX *ctx, const char *p, unsigned char *digest)
 {
   if (p != NULL && *p)
