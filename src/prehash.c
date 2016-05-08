@@ -312,7 +312,7 @@ vmod_director_set_hash_header(VRT_CTX, struct vmod_prehash_director *rr, const c
   voverride_unlock(rr->vo);
 }
 
-VCL_VOID __match_proto__()
+VCL_VOID __match_proto__(td_prehash_director__init)
 vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
                     const char *vcl_name)
 {
@@ -341,7 +341,7 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
 }
 
 
-VCL_VOID __match_proto__()
+VCL_VOID __match_proto__(td_prehash_director__fini)
 vmod_director__fini(struct vmod_prehash_director **rrp) {
   struct vmod_prehash_director *rr;
 
@@ -353,8 +353,9 @@ vmod_director__fini(struct vmod_prehash_director **rrp) {
   FREE_OBJ(rr);
 }
 
-VCL_VOID __match_proto__() vmod_director_add_backend(VRT_CTX,
-  struct vmod_prehash_director *rr, VCL_BACKEND be, double w)
+VCL_VOID __match_proto__(td_prehash_director_add_backend)
+vmod_director_add_backend(VRT_CTX, struct vmod_prehash_director *rr,
+                                          VCL_BACKEND be, double w)
 {
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
@@ -367,8 +368,9 @@ VCL_VOID __match_proto__() vmod_director_add_backend(VRT_CTX,
   }
 }
 
-VCL_VOID __match_proto__() vmod_director_add_hashed_backend(VRT_CTX,
-  struct vmod_prehash_director *rr, VCL_BACKEND be, const char *arg, ...)
+VCL_VOID __match_proto__(td_prehash_director_add_hashed_backend)
+vmod_director_add_hashed_backend(VRT_CTX, struct vmod_prehash_director *rr,
+                                          VCL_BACKEND be, const char *arg, ...)
 {
   va_list ap;
   double w;
@@ -383,8 +385,9 @@ VCL_VOID __match_proto__() vmod_director_add_hashed_backend(VRT_CTX,
   VSL(SLT_Debug, 0, "prehash backend override '%s' registered with hash value %f", be->vcl_name, w);
 }
 
-VCL_VOID __match_proto__() vmod_director_add_lastresort_backend(VRT_CTX,
-  struct vmod_prehash_director *rr, VCL_BACKEND be, double w)
+VCL_VOID __match_proto__(td_prehash_director_add_lastresort_backend)
+vmod_director_add_lastresort_backend(VRT_CTX, struct vmod_prehash_director *rr,
+                                              VCL_BACKEND be, double w)
 {
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
