@@ -7,6 +7,9 @@ DISTCHECK_CONFIGURE_FLAGS = \
 
 EXTRA_DIST = README.rst docs/*.rst
 
+DISTCLEANFILES = $(top_srcdir)/configure \
+  $(top_srcdir)/docs/vmod_*.man.rst $(top_srcdir)/docs/vmod_*.rst 
+
 doc_DATA = README.rst
 
 %.1 %.2 %.3 %.4 %.5 %.6 %.7 %.8 %.9:
