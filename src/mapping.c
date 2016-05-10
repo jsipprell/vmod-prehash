@@ -70,11 +70,9 @@ void vmapping_delete(struct vmapping **vmp)
 static int pick_be(struct vdir *vd, double hv, struct vbitmap *vbm)
 {
   unsigned u;
-  double ttw = 0;
   double tw = 0;
 
   for(u = 0; u < vd->n_backend; u++) {
-    ttw += vd->weight[u];
     if (!vbit_test(vbm, u)) {
       tw += vd->weight[u];
     }

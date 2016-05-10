@@ -25,7 +25,7 @@ void voverride_new(struct voverride **vop, struct ws *ws,
 {
   struct voverride *vo;
 
-  CHECK_OBJ_NOTNULL(ws, WS_MAGIC);
+  CHECK_OBJ_ORNULL(ws, WS_MAGIC);
 
   AN(name);
   AN(vcl_name);
@@ -43,7 +43,18 @@ void voverride_new(struct voverride **vop, struct ws *ws,
   vo->dir->priv = priv;
   vo->dir->healthy = healthy;
   vo->dir->resolve = resolve;
+  if (!ws) {
+    unsigned char *s;
+
+    vo->scratch = malloc(4096);
+    AN(vo->scratch);
+    s = (unsigned char*)PRNDUP(vo->scratch);
+    ws = (struct ws*)s;
+    s += PRNDUP(sizeof *ws);
+    WS_Init(ws, "mii", s, 4096 - (s - vo->scratch));
+  }
   vo->ws = ws;
+  CHECK_OBJ_NOTNULL(vo->ws, WS_MAGIC);
 }
 
 void
@@ -74,6 +85,8 @@ voverride_delete(struct voverride **vop)
   free(vo->hashvals);
   AZ(pthread_rwlock_destroy(&vo->mtx));
   free(vo->dir->vcl_name);
+  if (vo->scratch)
+    free(vo->scratch);
   FREE_OBJ(vo->dir);
   FREE_OBJ(vo);
 }
@@ -117,29 +130,20 @@ void voverride_expand(struct voverride *vo, unsigned sz)
   vo->l_backend = sz;
 }
 
-unsigned voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
+int voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
                                double hv, const char *name)
 {
   unsigned u;
-  char *n;
 
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
-  voverride_wrlock(vo);
-  u = strlen(name);
-  n = WS_Alloc(vo->ws, u+1);
-  AN(n);
-  strcpy(n, name);
-  name = n;
 
   if (vo->n_backend >= vo->l_backend)
     voverride_expand(vo, vo->l_backend + 16);
   assert(vo->n_backend < vo->l_backend);
   u = vo->n_backend++;
   vo->backend[u] = be;
-  vo->names[u] = n;
+  vo->names[u] = name;
   vo->hashvals[u] = hv;
-  voverride_unlock(vo);
-
   return u;
 }
 

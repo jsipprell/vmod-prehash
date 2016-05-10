@@ -30,8 +30,6 @@ endif
 EXTRA_DIST = $(top_srcdir)/src/*.vcc $(top_srcdir)/src/_vdir.h $(top_srcdir)/include/*.h
 
 CLEANFILES = $(builddir)/vcc*if.c $(builddir)/vcc*if.h \
-	$(builddir)/../docs/vmod_*.man.rst \
-	$(builddir)/../docs/vmod_*.rst \
 	$(builddir)/*.man.rst 	$(builddir)/*.3
 
 SUFFIXES = .man.rst
