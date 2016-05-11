@@ -350,7 +350,7 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
   WS_Init(rr->ws, "mii", s, sizeof(rr->__scratch) - (s - &rr->__scratch[0]));
 
   vdir_new(&rr->vd, "prehash", WS_Printf(rr->ws,"%s_random", vcl_name), prehash_healthy, prehash_random_resolve, rr);
-  voverride_new(&rr->vo, rr->ws, "prehash_override", WS_Printf(rr->ws,"%s_hashed", vcl_name), prehash_healthy, vmod_director_resolve, rr);
+  voverride_new(&rr->vo, rr->ws, "prehash_override", WS_Printf(rr->ws,"%s_excl", vcl_name), prehash_healthy, vmod_director_resolve, rr);
 
   lrr = (struct vmod_prehash_lastresort_director*)WS_Alloc(rr->ws, sizeof *lrr);
   INIT_OBJ(lrr, VMOD_PREHASH_LASTRESORT_MAGIC);
@@ -387,8 +387,8 @@ vmod_director_add_backend(VRT_CTX, struct vmod_prehash_director *rr,
   }
 }
 
-VCL_VOID __match_proto__(td_prehash_director_add_hashed_backend)
-vmod_director_add_hashed_backend(VRT_CTX, struct vmod_prehash_director *rr,
+VCL_VOID __match_proto__(td_prehash_director_add_exclusive_backend)
+vmod_director_add_exclusive_backend(VRT_CTX, struct vmod_prehash_director *rr,
                                           VCL_BACKEND be, const char *arg, ...)
 {
   va_list ap;
@@ -416,9 +416,9 @@ vmod_director_add_hashed_backend(VRT_CTX, struct vmod_prehash_director *rr,
   } else {
     WS_Release(rr->vo->ws, 0);
     if (ctx->msg)
-      VSB_printf(ctx->msg, "prehash: insufficent ws allocation available for new hashed backend (req=%u bytes)\n", u-1);
+      VSB_printf(ctx->msg, "prehash: insufficent ws allocation available for new exclusive backend (req=%u bytes)\n", u-1);
     else
-      VSLb(ctx->vsl, SLT_VCL_Error, "prehash: insufficient ws allocation available for new hashed backend (req=%u bytes)", u-1);
+      VSLb(ctx->vsl, SLT_VCL_Error, "prehash: insufficient ws allocation available for new exclusive backend (req=%u bytes)", u-1);
     VRT_handling(ctx, VCL_RET_FAIL);
   }
   voverride_unlock(rr->vo);
