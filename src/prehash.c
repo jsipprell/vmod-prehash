@@ -166,7 +166,10 @@ static double calchash(const char *data, ...)
   rv = vbe32dec(&sha256[0]);
   r = scalbn(rv, -32);
   assert(r >= 0 && r <= 1.0);
+
+#ifdef VMOD_PREHASH_DEBUG
   VSL(SLT_Debug, 0, "vbe32dec(sha256) -> 0x%04x / scalbn(-32) -> %f", rv, r);
+#endif
   return r;
 }
 
@@ -216,10 +219,13 @@ vmod_director_resolve(const struct director *dir,
   if ((gethdr.what = ATOMIC_GET(rr->vd, rr->hdr)) == NULL)
     gethdr.what = H_Host;
 
+#ifdef VMOD_PREHASH_DEBUG
   if(http_GetHdr(bo->bereq, gethdr.what, &value) && value != NULL)
     VSL(SLT_Debug, 0, "prehash hash header is '%s %s'", gethdr.what+1, value);
-
-  return resolve(rr, value, bo);
+#else
+  (void)http_GetHdr(bo->bereq, gethdr.what, &value);
+#endif
+  return value ? resolve(rr, value, bo) : NULL;
 }
 
 VCL_BACKEND __match_proto__(td_prehash_director_self)
