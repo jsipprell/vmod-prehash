@@ -225,7 +225,7 @@ vmod_director_resolve(const struct director *dir,
 #else
   (void)http_GetHdr(bo->bereq, gethdr.what, &value);
 #endif
-  return value ? resolve(rr, value, bo) : NULL;
+  return resolve(rr, value, bo);
 }
 
 VCL_BACKEND __match_proto__(td_prehash_director_self)
