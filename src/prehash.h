@@ -1,4 +1,6 @@
 #ifndef VMOD_PREHASH_DIRECTOR_MAGIC
+
+#include "atomic.h"
 struct voverride {
   unsigned              magic;
 #define VDIR_OVERRIDE_MAGIC        0xfeb09a2e
@@ -25,7 +27,7 @@ struct vmapping {
 struct vmod_prehash_director {
   unsigned        magic;
 #define VMOD_PREHASH_DIRECTOR_MAGIC 0x3fe1beef
-  const char     *hdr;
+  atomic_ptr_t    hdr;
   struct vdir    *vd, *lrvd;
   struct voverride *vo;
   struct          ws *ws;

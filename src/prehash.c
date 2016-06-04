@@ -213,9 +213,8 @@ vmod_director_resolve(const struct director *dir,
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_DIRECTOR_MAGIC);
   CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
-  voverride_rdlock(rr->vo);
-  gethdr.what = rr->hdr ? rr->hdr : H_Host;
-  voverride_unlock(rr->vo);
+  if ((gethdr.what = ATOMIC_GET(rr->vd, rr->hdr)) == NULL)
+    gethdr.what = H_Host;
 
   if(http_GetHdr(bo->bereq, gethdr.what, &value) && value != NULL)
     VSL(SLT_Debug, 0, "prehash hash header is '%s %s'", gethdr.what+1, value);
@@ -231,9 +230,8 @@ vmod_director_self(VRT_CTX, struct vmod_prehash_director *rr)
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
 
-  voverride_rdlock(rr->vo);
-  gethdr.what = rr->hdr ? rr->hdr : H_Host;
-  voverride_unlock(rr->vo);
+  if ((gethdr.what = ATOMIC_GET(rr->vd, rr->hdr)) == NULL)
+    gethdr.what = H_Host;
 
   if ((ctx->method & (VCL_MET_BACKEND_FETCH|VCL_MET_BACKEND_RESPONSE|VCL_MET_BACKEND_ERROR))  != 0) {
     CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
@@ -322,9 +320,7 @@ vmod_director_set_hash_header(VRT_CTX, struct vmod_prehash_director *rr, const c
     *((char*)t.e-1) = 0; t.e++;
     *rr->ws->f = (char)strlen(rr->ws->f+1);
     WS_Release(rr->ws, t.e - t.b);
-    vdir_wrlock(rr->vd);
-    rr->hdr = (const char*)t.b;
-    vdir_unlock(rr->vd);
+    ATOMIC_SET(rr->vd, rr->hdr, t.b);
   } else {
     WS_Release(rr->ws, 0);
   }
