@@ -4,13 +4,13 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
-#include "vcl.h"
 #include "cache/cache.h"
-#include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vend.h"
+#include "vcl.h"
 #include "vsha256.h"
 
 #include "vdir.h"
@@ -19,15 +19,14 @@
 
 
 
-void voverride_new(struct voverride **vop, struct ws *ws,
-    const char *name, const char *vcl_name,
+void voverride_new(VRT_CTX, struct voverride **vop, struct ws *ws,
+    const char *fmt, const char *vcl_name,
     vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv)
 {
   struct voverride *vo;
 
   CHECK_OBJ_ORNULL(ws, WS_MAGIC);
 
-  AN(name);
   AN(vcl_name);
   AN(vop);
   AZ(*vop);
@@ -36,13 +35,10 @@ void voverride_new(struct voverride **vop, struct ws *ws,
   *vop = vo;
   AZ(pthread_rwlock_init(&vo->mtx, NULL));
 
-  ALLOC_OBJ(vo->dir, DIRECTOR_MAGIC);
-  AN(vo->dir);
-  vo->dir->name = name;
-  REPLACE(vo->dir->vcl_name, vcl_name);
-  vo->dir->priv = priv;
-  vo->dir->healthy = healthy;
-  vo->dir->resolve = resolve;
+  ALLOC_OBJ(vo->methods, VDI_METHODS_MAGIC);
+  vo->methods->type = "prehash";
+  vo->methods->healthy = healthy;
+  vo->methods->resolve = resolve;
   if (!ws) {
     unsigned char *s;
 
@@ -55,6 +51,7 @@ void voverride_new(struct voverride **vop, struct ws *ws,
   }
   vo->ws = ws;
   CHECK_OBJ_NOTNULL(vo->ws, WS_MAGIC);
+  vo->dir = VRT_AddDirector(ctx, vo->methods, priv, fmt ? fmt :"%s_override", vcl_name);
 }
 
 void
@@ -70,6 +67,7 @@ voverride_delete(struct voverride **vop)
 
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
 
+  VRT_DelDirector(&vo->dir);
   if (vo->mapping != NULL) {
     for (u = 0; u < vo->n_backend; u++) {
       vm = vo->mapping[u];
@@ -84,10 +82,9 @@ voverride_delete(struct voverride **vop)
   free((void*)vo->names);
   free(vo->hashvals);
   AZ(pthread_rwlock_destroy(&vo->mtx));
-  free(vo->dir->vcl_name);
+  free(vo->methods);
   if (vo->scratch)
     free(vo->scratch);
-  FREE_OBJ(vo->dir);
   FREE_OBJ(vo);
 }
 
@@ -172,13 +169,12 @@ void voverride_create_mappings(struct voverride *vo, struct vdir *vd)
 }
 
 VCL_BACKEND
-voverride_get_be(struct voverride *vo, double hv, const struct busyobj *bo, struct vmapping **vmp, int *healthy)
+voverride_get_be(VRT_CTX, struct voverride *vo, double hv, struct vmapping **vmp, int *healthy)
 {
   unsigned u;
   VCL_BACKEND be = NULL;
 
   CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
-  CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
 
   if (vmp != NULL)
     *vmp = NULL;
@@ -188,7 +184,7 @@ voverride_get_be(struct voverride *vo, double hv, const struct busyobj *bo, stru
     if (vo->hashvals[u] == hv) {
       be = vo->backend[u];
       if (healthy) {
-        *healthy = be->healthy(be, bo, NULL);
+        *healthy = VRT_Healthy(ctx, be, NULL);
       }
       if (vmp != NULL)
         *vmp = vo->mapping[u];

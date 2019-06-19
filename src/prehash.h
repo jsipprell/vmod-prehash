@@ -10,8 +10,9 @@ struct voverride {
   VCL_BACKEND           *backend;
   const char            **names;
   struct vmapping       **mapping;
+  struct vdi_methods    *methods;
   double                *hashvals;
-  struct director       *dir;
+  VCL_BACKEND           dir;
   struct ws             *ws;
   unsigned char         *scratch;
 };
@@ -47,23 +48,20 @@ void vmapping_create_aliases(struct vmapping *vm, struct vdir *vd, struct SHA256
 
 #define VMAPALIAS(vm,i) (((vm) != NULL && (i) < (vm)->n_alias) ? ((vm)->alias[(i)]) : (i))
 
-void voverride_new(struct voverride **vop, struct ws *ws,
-    const char *name, const char *vcl_name,
-    vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv);
+void voverride_new(VRT_CTX, struct voverride **vop, struct ws *ws,
+    const char *fmt, const char *vcl_name, vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv);
 void voverride_delete(struct voverride **vop);
 void voverride_rdlock(struct voverride *vo);
 void voverride_wrlock(struct voverride *vo);
 void voverride_unlock(struct voverride *vo);
 int voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
                                double hv, const char *name);
-VCL_BACKEND voverride_get_be(struct voverride *vo, double hv,
-                             const struct busyobj*, struct vmapping **vmp, int *healthy);
+VCL_BACKEND voverride_get_be(VRT_CTX, struct voverride *vo, double hv,
+                             struct vmapping **vmp, int *healthy);
 void voverride_create_mappings(struct voverride *vo, struct vdir *vd);
 
-const struct director * __match_proto__(vdi_resolve_f)
-prehash_random_resolve(const struct director*, struct worker*, struct busyobj*);
-const struct director * __match_proto__(vdi_resolve_f)
-prehash_rr_resolve(const struct director*, struct worker*, struct busyobj*);
+VCL_BACKEND v_matchproto_(vdi_resolve_f) prehash_random_resolve(VRT_CTX, VCL_BACKEND);
+VCL_BACKEND v_matchproto_(vdi_resolve_f) prehash_rr_resolve(VRT_CTX, VCL_BACKEND);
 
 void sha256update(SHA256_CTX *ctx, const char *p, unsigned char digest[32]);
 void sha256reset(SHA256_CTX *ctx, SHA256_CTX *base);

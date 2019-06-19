@@ -4,12 +4,10 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
-#include "vcl.h"
 #include "cache/cache.h"
-#include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vend.h"
 #include "vsha256.h"
 

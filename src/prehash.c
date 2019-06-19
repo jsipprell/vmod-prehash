@@ -5,31 +5,30 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "vcl.h"
-
 #include "cache/cache.h"
 #include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vend.h"
 #include "vsha256.h"
 #include "vbm.h"
+#include "vcl.h"
+#include "vsb.h"
 
 #include "vdir.h"
 #include "vcc_prehash_if.h"
 #include "prehash.h"
 
-static unsigned __match_proto__(vdi_healthy)
-prehash_healthy(const struct director *dir, const struct busyobj *bo, double *changed)
+static unsigned v_matchproto_(vdi_healthy)
+prehash_healthy(VRT_CTX, const struct director *dir, double *changed)
 {
   struct vmod_prehash_director *rr;
   CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_DIRECTOR_MAGIC);
-  return (vdir_any_healthy(rr->vd, bo, changed));
+  return (vdir_any_healthy(ctx, rr->vd, changed));
 }
 
 /*
-static unsigned __match_proto__(vdi_healthy)
+static unsigned v_matchproto_(vdi_healthy)
 prehash_override_healthy(const struct director *dir, const struct busyobj *bo, double *changed)
 {
   unsigned u;
@@ -75,16 +74,15 @@ pick_by_weight(const struct vdir *vd, double w,
 }
 
 static VCL_BACKEND
-pick_be(struct vdir *vd, double w, const struct busyobj *bo, const struct vmapping *m)
+pick_be(VRT_CTX, struct vdir *vd, double w, const struct vmapping *m)
 {
   unsigned u;
   double tw = 0.0;
   VCL_BACKEND be = NULL;
 
-  CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
   vdir_rdlock(vd);
   for (u = 0; u < vd->n_backend; u++) {
-    if (vd->backend[u]->healthy(vd->backend[u], bo, NULL)) {
+    if (VRT_Healthy(ctx, vd->backend[u], NULL)) {
       vbit_clr(vd->vbm, u);
       tw += vd->weight[u];
     } else
@@ -100,13 +98,13 @@ pick_be(struct vdir *vd, double w, const struct busyobj *bo, const struct vmappi
   return (be);
 }
 
-static unsigned __match_proto__(vdi_healthy)
-lrvd_healthy(const struct director *dir, const struct busyobj *bo, double *changed)
+static unsigned v_matchproto_(vdi_healthy)
+lrvd_healthy(VRT_CTX, const struct director *dir, double *changed)
 {
   struct vmod_prehash_lastresort_director *rr;
   CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_LASTRESORT_MAGIC);
-  return (vdir_any_healthy(rr->vd, bo, changed));
+  return (vdir_any_healthy(ctx, rr->vd, changed));
 }
 
 static double vcalchash(const char **dp, unsigned maxlen, const char *arg, va_list ap)
@@ -173,9 +171,8 @@ static double calchash(const char *data, ...)
   return r;
 }
 
-static const struct director *resolve(const struct vmod_prehash_director *rr,
-                                      const char *value,
-                                      struct busyobj *bo)
+static VCL_BACKEND resolve(VRT_CTX, const struct vmod_prehash_director *rr,
+                                      const char *value)
 {
   struct vmapping *m = NULL;
   int healthy = 0;
@@ -183,19 +180,18 @@ static const struct director *resolve(const struct vmod_prehash_director *rr,
   VCL_BACKEND be = NULL;
 
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
-  CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
 
-  if (!vdir_any_healthy(rr->vd, NULL, NULL))
+  if (!vdir_any_healthy(ctx, rr->vd, NULL))
     return (rr->lrvd->dir);
 
   if (value != NULL && *value != '\0') {
     r = calchash(value, NULL);
-    be = voverride_get_be(rr->vo, r, bo, &m, &healthy);
+    be = voverride_get_be(ctx, rr->vo, r, &m, &healthy);
     if (!be || !healthy) {
       if (!m)
-        be = vdir_pick_be(rr->vd, r, bo);
+        be = vdir_pick_be(ctx, rr->vd, r);
       else
-        be = pick_be(rr->vd, r, bo, m);
+        be = pick_be(ctx, rr->vd, r, m);
     }
   } else
     be = rr->vd->dir;
@@ -203,32 +199,37 @@ static const struct director *resolve(const struct vmod_prehash_director *rr,
   return (be ? be : rr->lrvd->dir);
 }
 
-static const struct director * __match_proto__(vdi_resolve_f)
-vmod_director_resolve(const struct director *dir,
-                       struct worker *wrk,
-                       struct busyobj *bo)
+static VCL_BACKEND v_matchproto_(vdi_resolve_f)
+vmod_director_resolve(VRT_CTX, VCL_BACKEND dir)
 {
   struct vmod_prehash_director *rr;
   struct gethdr_s gethdr;
   const char *value = NULL;
 
-  (void)wrk;
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_DIRECTOR_MAGIC);
-  CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
   if ((gethdr.what = ATOMIC_GET(rr->vd, rr->hdr)) == NULL)
     gethdr.what = H_Host;
 
+  if(ctx->bo == NULL) {
+    WRONG("resolve called with no bo");
+  }
+
+  if(ctx->bo->bereq == NULL) {
+    WRONG("resolve called with no bereq");
+  }
+
+  CHECK_OBJ(ctx->bo, BUSYOBJ_MAGIC);
 #ifdef VMOD_PREHASH_DEBUG
-  if(http_GetHdr(bo->bereq, gethdr.what, &value) && value != NULL)
+  if(http_GetHdr(ctx->bo->bereq, gethdr.what, &value) && value != NULL)
     VSL(SLT_Debug, 0, "prehash hash header is '%s %s'", gethdr.what+1, value);
 #else
-  (void)http_GetHdr(bo->bereq, gethdr.what, &value);
+  (void)http_GetHdr(ctx->bo->bereq, gethdr.what, &value);
 #endif
-  return resolve(rr, value, bo);
+  return resolve(ctx, rr, value);
 }
 
-VCL_BACKEND __match_proto__(td_prehash_director_self)
+VCL_BACKEND v_matchproto_(td_prehash_director_self)
 vmod_director_self(VRT_CTX, struct vmod_prehash_director *rr)
 {
   struct gethdr_s gethdr;
@@ -256,11 +257,11 @@ vmod_director_self(VRT_CTX, struct vmod_prehash_director *rr)
     VSL(SLT_Debug, 0, "prehash hash header is '%s %s'", gethdr.what+1, value);
   }
 
-  return resolve(rr, value, ctx->bo);
+  return resolve(ctx, rr, value);
 }
 
 
-VCL_BACKEND __match_proto__(td_prehash_director_backend)
+VCL_BACKEND v_matchproto_(td_prehash_director_backend)
 vmod_director_backend(VRT_CTX, struct vmod_prehash_director *rr)
 { 
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -270,7 +271,7 @@ vmod_director_backend(VRT_CTX, struct vmod_prehash_director *rr)
   return rr->vo->dir;
 }
 
-VCL_BACKEND __match_proto__(td_prehash_director_hash)
+VCL_BACKEND v_matchproto_(td_prehash_director_hash)
 vmod_director_hash(VRT_CTX, struct vmod_prehash_director *rr, const char *args, ...)
 {
   va_list ap;
@@ -285,15 +286,15 @@ vmod_director_hash(VRT_CTX, struct vmod_prehash_director *rr, const char *args, 
   r = vcalchash(NULL, 0, args, ap);
   va_end(ap);
 
-  be = voverride_get_be(rr->vo, r, ctx->bo, NULL, &healthy);
+  be = voverride_get_be(ctx, rr->vo, r, NULL, &healthy);
   if (!healthy) {
-    be = vdir_pick_be(rr->vd, r, ctx->bo);
+    be = vdir_pick_be(ctx, rr->vd, r);
   }
 
   return be;
 }
 
-VCL_VOID __match_proto__(td_prehash_director_finalize)
+VCL_VOID v_matchproto_(td_prehash_director_finalize)
 vmod_director_finalize(VRT_CTX, struct vmod_prehash_director *rr)
 {
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -302,7 +303,7 @@ vmod_director_finalize(VRT_CTX, struct vmod_prehash_director *rr)
   voverride_create_mappings(rr->vo, rr->vd);
 }
 
-VCL_VOID __match_proto__(td_prehash_director_set_hash_header)
+VCL_VOID v_matchproto_(td_prehash_director_set_hash_header)
 vmod_director_set_hash_header(VRT_CTX, struct vmod_prehash_director *rr, const char *arg, ...)
 {
   va_list ap;
@@ -333,7 +334,7 @@ vmod_director_set_hash_header(VRT_CTX, struct vmod_prehash_director *rr, const c
   voverride_unlock(rr->vo);
 }
 
-VCL_VOID __match_proto__(td_prehash_director__init)
+VCL_VOID v_matchproto_(td_prehash_director__init)
 vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
                     const char *vcl_name)
 {
@@ -351,18 +352,18 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
   s = (unsigned char*)PRNDUP((char*)rr->ws + sizeof(struct ws));
   WS_Init(rr->ws, "mii", s, sizeof(rr->__scratch) - (s - &rr->__scratch[0]));
 
-  vdir_new(&rr->vd, "prehash", WS_Printf(rr->ws,"%s_random", vcl_name), prehash_healthy, prehash_random_resolve, rr);
-  voverride_new(&rr->vo, rr->ws, "prehash_override", WS_Printf(rr->ws,"%s_excl", vcl_name), prehash_healthy, vmod_director_resolve, rr);
+  vdir_new(ctx, &rr->vd, "%s_random", vcl_name, prehash_healthy, prehash_random_resolve, rr);
+  voverride_new(ctx, &rr->vo, rr->ws, "%s_excl", vcl_name, prehash_healthy, vmod_director_resolve, rr);
 
   lrr = (struct vmod_prehash_lastresort_director*)WS_Alloc(rr->ws, sizeof *lrr);
   INIT_OBJ(lrr, VMOD_PREHASH_LASTRESORT_MAGIC);
 
-  vdir_new(&rr->lrvd, "prehash_lastresort", WS_Printf(rr->ws,"%s_lastresort", vcl_name), lrvd_healthy, prehash_rr_resolve, lrr);
+  vdir_new(ctx, &rr->lrvd, "%s_lastresort", vcl_name, lrvd_healthy, prehash_rr_resolve, lrr);
   lrr->vd = rr->lrvd;
 }
 
 
-VCL_VOID __match_proto__(td_prehash_director__fini)
+VCL_VOID v_matchproto_(td_prehash_director__fini)
 vmod_director__fini(struct vmod_prehash_director **rrp) {
   struct vmod_prehash_director *rr;
 
@@ -374,7 +375,7 @@ vmod_director__fini(struct vmod_prehash_director **rrp) {
   FREE_OBJ(rr);
 }
 
-VCL_VOID __match_proto__(td_prehash_director_add_backend)
+VCL_VOID v_matchproto_(td_prehash_director_add_backend)
 vmod_director_add_backend(VRT_CTX, struct vmod_prehash_director *rr,
                                           VCL_BACKEND be, double w)
 {
@@ -389,7 +390,7 @@ vmod_director_add_backend(VRT_CTX, struct vmod_prehash_director *rr,
   }
 }
 
-VCL_VOID __match_proto__(td_prehash_director_add_exclusive_backend)
+VCL_VOID v_matchproto_(td_prehash_director_add_exclusive_backend)
 vmod_director_add_exclusive_backend(VRT_CTX, struct vmod_prehash_director *rr,
                                           VCL_BACKEND be, const char *arg, ...)
 {
@@ -426,7 +427,7 @@ vmod_director_add_exclusive_backend(VRT_CTX, struct vmod_prehash_director *rr,
   voverride_unlock(rr->vo);
 }
 
-VCL_VOID __match_proto__(td_prehash_director_add_lastresort_backend)
+VCL_VOID v_matchproto_(td_prehash_director_add_lastresort_backend)
 vmod_director_add_lastresort_backend(VRT_CTX, struct vmod_prehash_director *rr,
                                               VCL_BACKEND be, double w)
 {
