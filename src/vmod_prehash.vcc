@@ -1,4 +1,4 @@
-$Module prehash 3 Varnish Prehash Director w/ Overrides & Random Fallthrough
+$Module prehash 3 "Varnish Prehash Director w/ Overrides & Random Fallthrough"
 
 DESCRIPTION
 ===========
