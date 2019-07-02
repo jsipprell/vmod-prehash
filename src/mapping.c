@@ -5,11 +5,9 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "vcl.h"
 #include "cache/cache.h"
-#include "cache/cache_director.h"
 
-#include "vrt.h"
+#include "vcl.h"
 #include "vend.h"
 #include "vsha256.h"
 
@@ -97,7 +95,7 @@ void vmapping_create_aliases(struct vmapping *vm, struct vdir *vd, struct SHA256
   CHECK_OBJ_NOTNULL(vm, VDIR_MAPPING_MAGIC);
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
 
-  map = vbit_init(8);
+  map = vbit_new(8);
   AN(map);
   vdir_rdlock(vd);
   for (u = 0; u < vd->n_backend; u++) {

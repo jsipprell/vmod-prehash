@@ -6,11 +6,9 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "vcl.h"
 #include "cache/cache.h"
-#include "cache/cache_director.h"
 
-#include "vrt.h"
+#include "vcl.h"
 #include "vend.h"
 #include "vsha256.h"
 #include "vbm.h"
@@ -22,10 +20,10 @@
 struct vmod_prehash_passthru {
   unsigned magic;
 #define VMOD_PREHASH_PASSTHRU_MAGIC 0x99aa682f
-  const struct director *be;
+  VCL_BACKEND be;
 };
 
-VCL_BACKEND __match_proto__(td_prehash_passthru_backend)
+VCL_BACKEND v_matchproto_(td_prehash_passthru_backend)
 vmod_passthru_backend(VRT_CTX, struct vmod_prehash_passthru *p)
 {
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
@@ -34,7 +32,7 @@ vmod_passthru_backend(VRT_CTX, struct vmod_prehash_passthru *p)
   return p->be;
 }
 
-VCL_VOID __match_proto__(td_prehash_passthru__init)
+VCL_VOID v_matchproto_(td_prehash_passthru__init)
 vmod_passthru__init(VRT_CTX, struct vmod_prehash_passthru **pp, const char *vcl_name, VCL_BACKEND be)
 {
   struct vmod_prehash_passthru *p;
@@ -51,7 +49,7 @@ vmod_passthru__init(VRT_CTX, struct vmod_prehash_passthru **pp, const char *vcl_
   p->be = be;
 }
 
-VCL_VOID __match_proto__(td_prehash_passthru__fini)
+VCL_VOID v_matchproto_(td_prehash_passthru__fini)
 vmod_passthru__fini(struct vmod_prehash_passthru **pp)
 {
   struct vmod_prehash_passthru *p;
