@@ -31,9 +31,7 @@
 #include <stdlib.h>
 
 #include "cache/cache.h"
-#include "cache/cache_director.h"
 
-#include "vrt.h"
 #include "vbm.h"
 
 #include "vdir.h"
@@ -51,12 +49,11 @@ vdir_expand(struct vdir *vd, unsigned n)
 }
 
 void
-vdir_new(struct vdir **vdp, const char *name, const char *vcl_name,
+vdir_new(VRT_CTX, struct vdir **vdp, const char *fmt, const char *vcl_name,
     vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv)
 {
   struct vdir *vd;
 
-  AN(name);
   AN(vcl_name);
   AN(vdp);
   AZ(*vdp);
@@ -65,14 +62,12 @@ vdir_new(struct vdir **vdp, const char *name, const char *vcl_name,
   *vdp = vd;
   AZ(pthread_rwlock_init(&vd->mtx, NULL));
 
-  ALLOC_OBJ(vd->dir, DIRECTOR_MAGIC);
-  AN(vd->dir);
-  vd->dir->name = name;
-  REPLACE(vd->dir->vcl_name, vcl_name);
-  vd->dir->priv = priv;
-  vd->dir->healthy = healthy;
-  vd->dir->resolve = resolve;
-  vd->vbm = vbit_init(8);
+  ALLOC_OBJ(vd->methods, VDI_METHODS_MAGIC);
+  vd->methods->type = "prehash";
+  vd->methods->healthy = healthy;
+  vd->methods->resolve = resolve;
+  vd->dir = VRT_AddDirector(ctx, vd->methods, priv, fmt ? fmt : "%s", vcl_name);
+  vd->vbm = vbit_new(8);
   AN(vd->vbm);
 }
 
@@ -87,11 +82,11 @@ vdir_delete(struct vdir **vdp)
 
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
 
+  VRT_DelDirector(&vd->dir);
   free(vd->backend);
   free(vd->weight);
   AZ(pthread_rwlock_destroy(&vd->mtx));
-  free(vd->dir->vcl_name);
-  FREE_OBJ(vd->dir);
+  FREE_OBJ(vd->methods);
   vbit_destroy(vd->vbm);
   FREE_OBJ(vd);
 }
@@ -164,26 +159,27 @@ vdir_remove_backend(struct vdir *vd, VCL_BACKEND be)
 }
 
 unsigned
-vdir_any_healthy(struct vdir *vd, const struct busyobj *bo, double *changed)
+vdir_any_healthy(VRT_CTX, struct vdir *vd, double *changed)
 {
   unsigned retval = 0;
   VCL_BACKEND be;
   unsigned u;
-  double c;
+  double c = 0;
 
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
-  CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
   vdir_rdlock(vd);
-  if (changed != NULL)
-    *changed = 0;
   for (u = 0; u < vd->n_backend; u++) {
+    VCL_BOOL h;
     be = vd->backend[u];
     CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
-    retval = be->healthy(be, bo, &c);
+
+    h = VRT_Healthy(ctx, be, &c);
     if (changed != NULL && c > *changed)
       *changed = c;
-    if (retval)
+    if (h) {
+      retval++;
       break;
+    }
   }
   vdir_unlock(vd);
   return (retval);
@@ -210,16 +206,15 @@ vdir_pick_by_weight(const struct vdir *vd, double w,
 }
 
 VCL_BACKEND
-vdir_pick_be(struct vdir *vd, double w, const struct busyobj *bo)
+vdir_pick_be(VRT_CTX, struct vdir *vd, double w)
 {
   unsigned u;
   double tw = 0.0;
   VCL_BACKEND be = NULL;
 
-  CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
   vdir_rdlock(vd);
   for (u = 0; u < vd->n_backend; u++) {
-    if (vd->backend[u]->healthy(vd->backend[u], bo, NULL)) {
+    if (VRT_Healthy(ctx, vd->backend[u], NULL)) {
       vbit_clr(vd->vbm, u);
       tw += vd->weight[u];
     } else
@@ -236,20 +231,18 @@ vdir_pick_be(struct vdir *vd, double w, const struct busyobj *bo)
 }
 
 VCL_BACKEND
-vdir_exact_be(struct vdir *vd, double w, const struct busyobj *bo, int *healthy)
+vdir_exact_be(VRT_CTX, struct vdir *vd, double w, int *healthy)
 {
   unsigned u;
   VCL_BACKEND be = NULL;
 
-
-  CHECK_OBJ_ORNULL(bo, BUSYOBJ_MAGIC);
 
   vdir_rdlock(vd);
   for (u = 0; u < vd->n_backend; u++) {
     if (vd->weight[u] == w) {
       be = vd->backend[u];
       if (healthy) {
-        *healthy = be->healthy(be, bo, NULL);
+        *healthy = VRT_Healthy(ctx, be, NULL);
       }
       break;
     }

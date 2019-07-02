@@ -5,11 +5,9 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "vcl.h"
 #include "cache/cache.h"
-#include "cache/cache_director.h"
 
-#include "vrt.h"
+#include "vcl.h"
 #include "vend.h"
 #include "vsha256.h"
 
@@ -17,18 +15,14 @@
 #include "vcc_prehash_if.h"
 #include "prehash.h"
 
-const struct director * __match_proto__(vdi_resolve_f)
-prehash_rr_resolve(const struct director *dir,
-                       struct worker *wrk,
-                       struct busyobj *bo)
+VCL_BACKEND v_matchproto_(vdi_resolve_f)
+prehash_rr_resolve(VRT_CTX, VCL_BACKEND dir)
 {
   struct vmod_prehash_lastresort_director *rr;
   VCL_BACKEND be = NULL;
   unsigned u;
 
   CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
-  CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
-  CHECK_OBJ_NOTNULL(bo, BUSYOBJ_MAGIC);
 
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_LASTRESORT_MAGIC);
   vdir_rdlock(rr->vd);
@@ -36,7 +30,7 @@ prehash_rr_resolve(const struct director *dir,
     be = rr->vd->backend[rr->nxt % rr->vd->n_backend];
     rr->nxt++;
     CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
-    if (be->healthy(be, bo, NULL))
+    if (VRT_Healthy(ctx, be, NULL))
       break;
   }
   if (u == rr->vd->n_backend)

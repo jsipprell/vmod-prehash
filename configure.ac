@@ -1,9 +1,9 @@
 AC_PREREQ(2.59)
 AC_COPYRIGHT([Your mom])
-AC_INIT([libvmod_prehash], [1.0.0])
+AC_INIT([libvmod_prehash], [1.1.0])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build])
-m4_ifndef([VARNISH_VMOD_INCLUDES], AC_MSG_ERROR([Needs varnish m4 -- is MI-varnish41-devel installed?]))
+m4_ifndef([VARNISH_VMODS], AC_MSG_ERROR([Needs varnish m4 -- is MI-varnish41-devel installed?]))
 AM_CONFIG_HEADER(include/config.h)
 
 AC_CANONICAL_SYSTEM
@@ -43,20 +43,16 @@ AC_DEFUN([PKG_CHECK_VAR],
   ])# PKG_CHECK_VAR
 ])
 
-PKG_CHECK_MODULES([libvarnishapi], [varnishapi])
-PKG_CHECK_VAR([LIBVARNISHAPI_DATAROOTDIR], [varnishapi], [datarootdir])
-PKG_CHECK_VAR([LIBVARNISHAPI_BINDIR], [varnishapi], [bindir])
-PKG_CHECK_VAR([LIBVARNISHAPI_SBINDIR], [varnishapi], [sbindir])
-AC_SUBST([LIBVARNISHAPI_DATAROOTDIR])
+VARNISH_VMODS([prehash])
 
-VARNISH_VMOD_INCLUDES
-VARNISH_VMOD_DIR
-VARNISH_VMODTOOL
+AC_CHECK_SIZEOF([void*])
+AS_CASE($target_cpu,
+  [x86_64], [have_atomicptr=$GCC],
+  [i?86], [have_atomicptr=$GCC],
+  [have_atomicptr=])
 
-AC_PATH_PROG([VARNISHTEST], [varnishtest], [],
-  [$LIBVARNISHAPI_BINDIR:$LIBVARNISHAPI_SBINDIR:$PATH])
-AC_PATH_PROG([VARNISHD], [varnishd], [],
-  [$LIBVARNISHAPI_SBINDIR:$LIBVARNISHAPI_BINDIR:$PATH])
+AS_VAR_IF(have_atomicptr, ["yes"], [dnl
+AC_DEFINE([HAVE_ATOMICPTR], [1], [Define if the target architecture's pointers are atomic if aligned])], [])
 
 AC_CONFIG_FILES([
   Makefile
