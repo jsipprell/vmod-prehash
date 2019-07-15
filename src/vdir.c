@@ -173,6 +173,8 @@ vdir_any_healthy(VRT_CTX, struct vdir *vd, double *changed)
 
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
   vdir_rdlock(vd);
+  if (changed)
+    *changed = 0;
   for (u = 0; u < vd->n_backend; u++) {
     VCL_BOOL h;
     be = vd->backend[u];
@@ -210,6 +212,35 @@ vdir_pick_by_weight(const struct vdir *vd, double w,
   WRONG("");
 }
 
+static unsigned
+vdir_update_health(VRT_CTX, struct vdir *vd, double *total_weight)
+{
+  VCL_BOOL h;
+  VCL_TIME c, changed = 0;
+  unsigned u, count = 0;
+  double tw = 0.0;
+
+  for (u = 0; u < vd->n_backend; u++) {
+    CHECK_OBJ_NOTNULL(vd->backend[u], DIRECTOR_MAGIC);
+    c = 0;
+    h = VRT_Healthy(ctx, vd->backend[u], &c);
+    if (c > changed)
+      changed = c;
+    if (h) {
+      tw += vd->weight[u];
+      count++;
+      if (vbit_test(vd->vbm, u))
+        vbit_clr(vd->vbm, u);
+    } else if (!vbit_test(vd->vbm, u))
+      vbit_set(vd->vbm, u);
+  }
+
+  VRT_SetChanged(vd->dir, changed);
+  if (total_weight)
+    *total_weight = tw;
+  return (count);
+}
+
 VCL_BACKEND
 vdir_pick_be(VRT_CTX, struct vdir *vd, double w)
 {
@@ -218,13 +249,7 @@ vdir_pick_be(VRT_CTX, struct vdir *vd, double w)
   VCL_BACKEND be = NULL;
 
   vdir_rdlock(vd);
-  for (u = 0; u < vd->n_backend; u++) {
-    if (VRT_Healthy(ctx, vd->backend[u], NULL)) {
-      vbit_clr(vd->vbm, u);
-      tw += vd->weight[u];
-    } else
-      vbit_set(vd->vbm, u);
-  }
+  vdir_update_health(ctx, vd, &tw);
   if (tw > 0.0) {
     u = vdir_pick_by_weight(vd, w * tw, vd->vbm);
     assert(u < vd->n_backend);
