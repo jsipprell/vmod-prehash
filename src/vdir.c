@@ -67,7 +67,7 @@ vdir_new(VRT_CTX, struct vdir **vdp, const char *fmt, const char *vcl_name,
   vd->methods->healthy = healthy;
   vd->methods->resolve = resolve;
   vd->dir = VRT_AddDirector(ctx, vd->methods, priv, fmt ? fmt : "%s", vcl_name);
-  vd->vbm = vbit_new(8);
+  vd->vbm = vbit_new(SLT__MAX);
   AN(vd->vbm);
 }
 
@@ -113,14 +113,19 @@ vdir_unlock(struct vdir *vd)
 }
 
 
-unsigned
-vdir_add_backend(struct vdir *vd, VCL_BACKEND be, double weight)
+int
+vdir_add_backend(VRT_CTX, struct vdir *vd, VCL_BACKEND be, double weight)
 {
   unsigned u;
 
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
   AN(be);
   vdir_wrlock(vd);
+  if (vd->n_backend >= SLT__MAX) {
+    VRT_fail(ctx, "prehash directors cannot have more than %d backends", SLT__MAX);
+    vdir_unlock(vd);
+    return (-1);
+  }
   if (vd->n_backend >= vd->l_backend)
     vdir_expand(vd, vd->l_backend + 16);
   assert(vd->n_backend < vd->l_backend);

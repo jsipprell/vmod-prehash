@@ -385,7 +385,7 @@ vmod_director_add_backend(VRT_CTX, struct vmod_prehash_director *rr,
   if (w == 0) {
     vmod_director_add_lastresort_backend(ctx, rr, be, 1.0);
   } else {
-    (void)vdir_add_backend(rr->vd, be, w);
+    (void)vdir_add_backend(ctx, rr->vd, be, w);
     VSL(SLT_Debug, 0, "prehash backend '%s' registered with weight %f", be->vcl_name, w);
   }
 }
@@ -433,7 +433,7 @@ vmod_director_add_lastresort_backend(VRT_CTX, struct vmod_prehash_director *rr,
 {
   CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
   CHECK_OBJ_NOTNULL(rr, VMOD_PREHASH_DIRECTOR_MAGIC);
-  (void)vdir_add_backend(rr->lrvd, be, w);
-  VSL(SLT_Debug, 0, "prehash lastresort backend '%s' registered with weight %f", be->vcl_name, w);
+  if (vdir_add_backend(ctx, rr->lrvd, be, w) > -1)
+    VSL(SLT_Debug, 0, "prehash lastresort backend '%s' registered with weight %f", be->vcl_name, w);
 }
 
