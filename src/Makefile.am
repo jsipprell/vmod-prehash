@@ -1,5 +1,5 @@
 AM_CFLAGS = $(VARNISHAPI_CFLAGS) -Wall -Werror -Wunused-parameter -Wmissing-prototypes
-AM_LDFLAGS = $(VMOD_LDFALGS)
+AM_LDFLAGS = $(VMOD_LDFALGS) @LDFLAGS_VERSION@
 
 DEFAULT_INCLUDES = -I. -I$(top_srcdir) -I$(top_srcdir)/include
 
@@ -12,10 +12,12 @@ libvmod_prehash_la_SOURCES = vdir.c vdir.h \
 	prehash.h
 
 nodist_libvmod_prehash_la_SOURCES = vcc_prehash_if.c vcc_prehash_if.h
+$(libvmod_prehash_la_OBJECTS): vcc_prehash_if.h
+$(vmod_LTLIBRARIES): symbols.map
 
 @BUILD_VMOD_PREHASH@
 
-EXTRA_DIST = $(top_srcdir)/src/*.vcc $(top_srcdir)/src/_vdir.h $(top_srcdir)/include/*.h
+EXTRA_DIST = $(top_srcdir)/src/*.vcc $(top_srcdir)/include/*.h $(top_srcdir)/src/symbols.map
 
 CLEANFILES = $(builddir)/vcc*if.c $(builddir)/vcc*if.h \
 	$(builddir)/*.man.rst 	$(builddir)/*.3

@@ -1,0 +1,4 @@
+{
+  global: Vmod_prehash_Data;
+  local: *;
+};

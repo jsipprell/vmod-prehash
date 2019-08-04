@@ -3,7 +3,7 @@ AC_COPYRIGHT([Your mom])
 AC_INIT([libvmod_prehash], [1.1.1])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build])
-m4_ifndef([VARNISH_VMODS], AC_MSG_ERROR([Needs varnish m4 -- is MI-varnish41-devel installed?]))
+m4_ifndef([VARNISH_VMODS], AC_MSG_ERROR([Needs varnish.m4]))
 AM_CONFIG_HEADER(include/config.h)
 
 AC_CANONICAL_SYSTEM
@@ -24,11 +24,9 @@ AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PROG_MAKE_SET
 
+LD_VERSION_SCRIPT([symbols.map])
+
 AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], "no")
-if test x"$RST2MAN" = x"no"; then
-  AC_MSG_WARN([rst2man not found - not building man pages])
-fi
-AM_CONDITIONAL(HAVE_RST2MAN, [test x"$RST2MAN" != x"no"])
 
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/stdlib.h])
@@ -43,6 +41,7 @@ AC_DEFUN([PKG_CHECK_VAR],
   ])# PKG_CHECK_VAR
 ])
 
+VARNISH_PREREQ([6.2.0])
 VARNISH_VMODS([prehash])
 
 AC_CHECK_SIZEOF([void*])
