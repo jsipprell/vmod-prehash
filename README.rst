@@ -4,14 +4,17 @@
 .. Edit vmod.vcc and run make instead
 ..
 
+.. role:: ref(emphasis)
 
-:tocdepth: 1
+============
+VMOD prehash
+============
 
-.. _vmod_prehash(3):
+----------------------------------------------------------
+Varnish Prehash Director w/ Overrides & Random Fallthrough
+----------------------------------------------------------
 
-=========================================================================
-VMOD prehash - Varnish Prehash Director w/ Overrides & Random Fallthrough
-=========================================================================
+:Manual section: 3
 
 SYNOPSIS
 ========
@@ -20,28 +23,28 @@ SYNOPSIS
 
   import prehash [from "path"]
   
-  :ref:`vmod_prehash.director`
+  new xdirector = prehash.director()
   
-      :ref:`vmod_prehash.director.set_hash_header`
+      VOID xdirector.set_hash_header(STRING)
+   
+      VOID xdirector.add_backend(BACKEND, REAL)
+   
+      VOID xdirector.add_exclusive_backend(BACKEND, STRING)
+   
+      VOID xdirector.add_lastresort_backend(BACKEND, REAL)
+   
+      VOID xdirector.finalize()
+   
+      BACKEND xdirector.backend()
+   
+      BACKEND xdirector.self()
+   
+      BACKEND xdirector.hash(STRING)
+   
+  new xpassthru = prehash.passthru(BACKEND)
   
-      :ref:`vmod_prehash.director.add_backend`
-  
-      :ref:`vmod_prehash.director.add_exclusive_backend`
-  
-      :ref:`vmod_prehash.director.add_lastresort_backend`
-  
-      :ref:`vmod_prehash.director.finalize`
-  
-      :ref:`vmod_prehash.director.backend`
-  
-      :ref:`vmod_prehash.director.self`
-  
-      :ref:`vmod_prehash.director.hash`
-  
-  :ref:`vmod_prehash.passthru`
-  
-      :ref:`vmod_prehash.passthru.backend`
-  
+      BACKEND xpassthru.backend()
+   
 DESCRIPTION
 ===========
 
