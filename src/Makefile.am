@@ -1,5 +1,5 @@
 AM_CFLAGS = $(VARNISHAPI_CFLAGS) -Wall -Werror -Wunused-parameter -Wmissing-prototypes
-AM_LDFLAGS = $(VMOD_LDFALGS) @LDFLAGS_VERSION@
+AM_LDFLAGS = $(VMOD_LDFLAGS) @LDFLAGS_VERSION@
 
 DEFAULT_INCLUDES = -I. -I$(top_srcdir) -I$(top_srcdir)/include
 

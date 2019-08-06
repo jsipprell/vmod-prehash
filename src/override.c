@@ -9,6 +9,7 @@
 
 #include "cache/cache.h"
 
+#include "vsb.h"
 #include "vend.h"
 #include "vcl.h"
 #include "vsha256.h"
@@ -18,10 +19,9 @@
 #include "prehash.h"
 
 
-
 void voverride_new(VRT_CTX, struct voverride **vop, struct ws *ws,
     const char *fmt, const char *vcl_name,
-    vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv)
+    vdi_healthy_f *healthy, vdi_resolve_f *resolve, vdi_list_f *list, void *priv)
 {
   struct voverride *vo;
 
@@ -39,6 +39,7 @@ void voverride_new(VRT_CTX, struct voverride **vop, struct ws *ws,
   vo->methods->type = "prehash";
   vo->methods->healthy = healthy;
   vo->methods->resolve = resolve;
+  vo->methods->list = list;
   if (!ws) {
     unsigned char *s;
 
@@ -193,5 +194,66 @@ voverride_get_be(VRT_CTX, struct voverride *vo, double hv, struct vmapping **vmp
   }
   voverride_unlock(vo);
   return (be);
+}
+
+void
+voverride_list(VRT_CTX, struct voverride *vo, struct vsb *vsb, int pflag, int jflag)
+{
+  VCL_BACKEND be;
+  unsigned u, nh = 0;
+  VCL_BOOL healthy;
+
+  CHECK_OBJ_NOTNULL(vo, VDIR_OVERRIDE_MAGIC);
+  voverride_rdlock(vo);
+
+  for (u = 0; u < vo->n_backend; u++) {
+    be = vo->backend[u];
+    CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
+    if((healthy = VRT_Healthy(ctx, be, NULL)))
+      nh++;
+
+    if (pflag) {
+      AN(vo->names[u]);
+      if (jflag) {
+        if (u)
+          VSB_cat(vsb, ",\n");
+        VSB_printf(vsb, "\"%s\": {\n", be->vcl_name);
+        VSB_indent(vsb, 2);
+        if (healthy)
+          VSB_cat(vsb, "\"health\": \"healthy\",\n");
+        else
+          VSB_cat(vsb, "\"health\": \"sick\",\n");
+        VSB_printf(vsb, "\"key\": \"%s\"\n", vo->names[u]);
+        VSB_indent(vsb, -2);
+        VSB_cat(vsb, "}");
+      } else {
+        VSB_cat(vsb, "\t");
+        VSB_cat(vsb, be->vcl_name);
+        VSB_cat(vsb, "\t");
+        VSB_cat(vsb, vo->names[u]);
+        VSB_cat(vsb, "\t");
+        VSB_cat(vsb, healthy ? "healthy" : "sick");
+        VSB_cat(vsb, "\n");
+      }
+    }
+  }
+  u = vo->n_backend;
+  voverride_unlock(vo);
+
+  if (jflag && pflag) {
+    VSB_cat(vsb, "\n");
+    VSB_indent(vsb, -2);
+    VSB_cat(vsb, "}\n");
+    VSB_indent(vsb, -2);
+    VSB_cat(vsb, "},\n");
+  }
+
+  if (pflag)
+    return;
+
+  if (jflag)
+    VSB_printf(vsb, "[%u, %u, \"%s\"]", nh, u, nh ? "healthy" : "sick");
+  else
+    VSB_printf(vsb, "%u/%u\t%s", nh, u, nh ? "healthy" : "sick");
 }
 

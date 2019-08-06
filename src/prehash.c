@@ -18,13 +18,54 @@
 #include "vcc_prehash_if.h"
 #include "prehash.h"
 
-static unsigned v_matchproto_(vdi_healthy)
+static unsigned v_matchproto_(vdi_healthy_f)
 prehash_healthy(VRT_CTX, const struct director *dir, double *changed)
 {
   struct vmod_prehash_director *rr;
   CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
   CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_DIRECTOR_MAGIC);
   return (vdir_any_healthy(ctx, rr->vd, changed));
+}
+
+static void v_matchproto_(vdi_list_f)
+prehash_list(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
+{
+  struct vmod_prehash_director *rr;
+  CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+  CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_DIRECTOR_MAGIC);
+  AN(vsb);
+
+
+  if (pflag) {
+    if (jflag) {
+      VSB_cat(vsb, "{\n");
+      VSB_indent(vsb, 2);
+      VSB_cat(vsb, "\"backends\": {\n");
+      VSB_indent(vsb, 2);
+    } else VSB_cat(vsb, "\n\n\tBackend\tRange\tHealth\n");
+  }
+
+  vdir_list(ctx, rr->vd, vsb, pflag, jflag);
+}
+
+static void v_matchproto_(vdi_list_f)
+prehash_list_excl(VRT_CTX, VCL_BACKEND dir, struct vsb *vsb, int pflag, int jflag)
+{
+  struct vmod_prehash_director *rr;
+  CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+  CAST_OBJ_NOTNULL(rr, dir->priv, VMOD_PREHASH_DIRECTOR_MAGIC);
+  AN(vsb);
+
+  if (pflag) {
+    if (jflag) {
+      VSB_cat(vsb, "{\n");
+      VSB_indent(vsb, 2);
+      VSB_cat(vsb, "\"backends\": {\n");
+      VSB_indent(vsb, 2);
+    } else VSB_cat(vsb, "\n\n\tBackend\tKey\tHealth\n");
+  }
+
+  voverride_list(ctx, rr->vo, vsb, pflag, jflag);
 }
 
 /*
@@ -352,13 +393,13 @@ vmod_director__init(VRT_CTX, struct vmod_prehash_director **rrp,
   s = (unsigned char*)PRNDUP((char*)rr->ws + sizeof(struct ws));
   WS_Init(rr->ws, "mii", s, sizeof(rr->__scratch) - (s - &rr->__scratch[0]));
 
-  vdir_new(ctx, &rr->vd, "%s_random", vcl_name, prehash_healthy, prehash_random_resolve, rr);
-  voverride_new(ctx, &rr->vo, rr->ws, "%s_excl", vcl_name, prehash_healthy, vmod_director_resolve, rr);
+  vdir_new(ctx, &rr->vd, "%s_random", vcl_name, prehash_healthy, prehash_random_resolve, prehash_list, rr);
+  voverride_new(ctx, &rr->vo, rr->ws, "%s_excl", vcl_name, prehash_healthy, vmod_director_resolve, prehash_list_excl, rr);
 
   lrr = (struct vmod_prehash_lastresort_director*)WS_Alloc(rr->ws, sizeof *lrr);
   INIT_OBJ(lrr, VMOD_PREHASH_LASTRESORT_MAGIC);
 
-  vdir_new(ctx, &rr->lrvd, "%s_lastresort", vcl_name, lrvd_healthy, prehash_rr_resolve, lrr);
+  vdir_new(ctx, &rr->lrvd, "%s_lastresort", vcl_name, lrvd_healthy, prehash_rr_resolve, NULL, lrr);
   lrr->vd = rr->lrvd;
 }
 

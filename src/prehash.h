@@ -49,7 +49,7 @@ void vmapping_create_aliases(struct vmapping *vm, struct vdir *vd, struct SHA256
 #define VMAPALIAS(vm,i) (((vm) != NULL && (i) < (vm)->n_alias) ? ((vm)->alias[(i)]) : (i))
 
 void voverride_new(VRT_CTX, struct voverride **vop, struct ws *ws,
-    const char *fmt, const char *vcl_name, vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv);
+    const char *fmt, const char *vcl_name, vdi_healthy_f *healthy, vdi_resolve_f *resolve, vdi_list_f *list, void *priv);
 void voverride_delete(struct voverride **vop);
 void voverride_rdlock(struct voverride *vo);
 void voverride_wrlock(struct voverride *vo);
@@ -59,6 +59,7 @@ int voverride_add_backend(struct voverride *vo, VCL_BACKEND be,
 VCL_BACKEND voverride_get_be(VRT_CTX, struct voverride *vo, double hv,
                              struct vmapping **vmp, int *healthy);
 void voverride_create_mappings(struct voverride *vo, struct vdir *vd);
+void voverride_list(VRT_CTX, struct voverride *vo, struct vsb *vsb, int pflag, int jflag);
 
 VCL_BACKEND v_matchproto_(vdi_resolve_f) prehash_random_resolve(VRT_CTX, VCL_BACKEND);
 VCL_BACKEND v_matchproto_(vdi_resolve_f) prehash_rr_resolve(VRT_CTX, VCL_BACKEND);

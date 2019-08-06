@@ -44,7 +44,7 @@ struct vdir {
 };
 
 void vdir_new(VRT_CTX, struct vdir **vdp, const char *fmt, const char *vcl_name,
-    vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv);
+    vdi_healthy_f *healthy, vdi_resolve_f *resolve, vdi_list_f *list, void *priv);
 void vdir_delete(struct vdir **vdp);
 void vdir_rdlock(struct vdir *vd);
 void vdir_wrlock(struct vdir *vd);
@@ -55,3 +55,4 @@ unsigned vdir_any_healthy(VRT_CTX, struct vdir *, double *changed);
 unsigned vdir_pick_by_weight(const struct vdir *, double, const struct vbitmap*);
 VCL_BACKEND vdir_pick_be(VRT_CTX, struct vdir *, double w);
 VCL_BACKEND vdir_exact_be(VRT_CTX, struct vdir *, double w, int *);
+void vdir_list(VRT_CTX, struct vdir *vd, struct vsb *svb, int pflag, int jflag);
