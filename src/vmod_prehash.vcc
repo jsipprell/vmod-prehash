@@ -3,7 +3,7 @@ $Module prehash 3 "Varnish Prehash Director w/ Overrides & Random Fallthrough"
 DESCRIPTION
 ===========
 
-A Varnish 4.1 meta-director that layers three sub-directors internally in order to
+A Varnish 6.2 meta-director that layers three sub-directors internally in order to
 provide deterministic load-balancing (affinity) behavior as well as
 default-case and ultimate fail-over support so that requests can be handled by
 the "most preferred" application server backend currently available.
@@ -83,7 +83,7 @@ Example
 $Method BACKEND .backend()
 
 Description
-  Returns a Varnish 4.1 backend director object that can be assigned to
+  Returns a Varnish 6.2 backend director object that can be assigned to
   `req.backend_hint`. Final resolution of the actual real backend is deferred
   until just before the bereq is sent. Calling `std.healthy()` on the director
   returned by this method will be true if *any* non-exclusive backend is
@@ -94,7 +94,42 @@ Example
     set req.backend_hint = vd_main.backend();
 
 $Method BACKEND .self()
+
+Description
+  Use the current req or bereq (depending on whether this is called from the
+  client or backend state machines) to determine the *actual* backend to be
+  used. This is subtly different than calling `backend()` as it returns the
+  final backend rather than the director which is later used to resolve the
+  backend.
+
+  Note that this method is typically only used for debugging.
+Example
+  ::
+
+    sub vcl_init {
+      new vdir = prehash.director();
+      vdir.add_backend(some_backend, 1.0);
+    }
+
+    sub vcl_recv {
+      req.backend_hint = vdir.self();
+    }
+
 $Method BACKEND .hash(STRING_LIST)
+
+Description
+  Hash the arguments and return a backend. This is typically only used for debugging.
+Example
+  ::
+
+    sub vcl_init {
+      new vdir = prehash.director();
+      vdir.add_backend(some_backend, 1.0);
+    }
+
+    sub vcl_recv {
+      req.backend_hint = vdir.hash("foo", "bar");
+    }
 
 $Object passthru(BACKEND)
 

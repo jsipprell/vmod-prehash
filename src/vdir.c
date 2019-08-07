@@ -27,13 +27,10 @@
  */
 
 #include "config.h"
-
 #include <stdlib.h>
-
 #include "cache/cache.h"
-
 #include "vbm.h"
-
+#include "vsb.h"
 #include "vdir.h"
 
 static void
@@ -50,7 +47,7 @@ vdir_expand(struct vdir *vd, unsigned n)
 
 void
 vdir_new(VRT_CTX, struct vdir **vdp, const char *fmt, const char *vcl_name,
-    vdi_healthy_f *healthy, vdi_resolve_f *resolve, void *priv)
+    vdi_healthy_f *healthy, vdi_resolve_f *resolve, vdi_list_f *list, void *priv)
 {
   struct vdir *vd;
 
@@ -66,8 +63,9 @@ vdir_new(VRT_CTX, struct vdir **vdp, const char *fmt, const char *vcl_name,
   vd->methods->type = "prehash";
   vd->methods->healthy = healthy;
   vd->methods->resolve = resolve;
+  vd->methods->list = list;
   vd->dir = VRT_AddDirector(ctx, vd->methods, priv, fmt ? fmt : "%s", vcl_name);
-  vd->vbm = vbit_new(8);
+  vd->vbm = vbit_new(SLT__MAX);
   AN(vd->vbm);
 }
 
@@ -113,14 +111,19 @@ vdir_unlock(struct vdir *vd)
 }
 
 
-unsigned
-vdir_add_backend(struct vdir *vd, VCL_BACKEND be, double weight)
+int
+vdir_add_backend(VRT_CTX, struct vdir *vd, VCL_BACKEND be, double weight)
 {
   unsigned u;
 
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
   AN(be);
   vdir_wrlock(vd);
+  if (vd->n_backend >= SLT__MAX) {
+    VRT_fail(ctx, "prehash directors cannot have more than %d backends", SLT__MAX);
+    vdir_unlock(vd);
+    return (-1);
+  }
   if (vd->n_backend >= vd->l_backend)
     vdir_expand(vd, vd->l_backend + 16);
   assert(vd->n_backend < vd->l_backend);
@@ -168,6 +171,8 @@ vdir_any_healthy(VRT_CTX, struct vdir *vd, double *changed)
 
   CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
   vdir_rdlock(vd);
+  if (changed)
+    *changed = 0;
   for (u = 0; u < vd->n_backend; u++) {
     VCL_BOOL h;
     be = vd->backend[u];
@@ -205,6 +210,98 @@ vdir_pick_by_weight(const struct vdir *vd, double w,
   WRONG("");
 }
 
+static unsigned
+vdir_update_health(VRT_CTX, struct vdir *vd, double *total_weight)
+{
+  VCL_BOOL h;
+  VCL_TIME c, changed = 0;
+  unsigned u, count = 0;
+  double tw = 0.0;
+
+  for (u = 0; u < vd->n_backend; u++) {
+    CHECK_OBJ_NOTNULL(vd->backend[u], DIRECTOR_MAGIC);
+    c = 0;
+    h = VRT_Healthy(ctx, vd->backend[u], &c);
+    if (c > changed)
+      changed = c;
+    if (h) {
+      tw += vd->weight[u];
+      count++;
+      if (vbit_test(vd->vbm, u))
+        vbit_clr(vd->vbm, u);
+    } else if (!vbit_test(vd->vbm, u))
+      vbit_set(vd->vbm, u);
+  }
+
+  VRT_SetChanged(vd->dir, changed);
+  if (total_weight)
+    *total_weight = tw;
+  return (count);
+}
+
+void
+vdir_list(VRT_CTX, struct vdir *vd, struct vsb *vsb, int pflag, int jflag)
+{
+  VCL_BACKEND be;
+  unsigned u, nh = 0;
+  VCL_BOOL unhealthy;
+  uint32_t range, last_range = 0;
+  double tw = 0.0;
+
+  CHECK_OBJ_NOTNULL(vd, VDIR_MAGIC);
+  vdir_rdlock(vd);
+  vdir_update_health(ctx, vd, &tw);
+  
+  for (u = 0; u < vd->n_backend; u++) {
+    be = vd->backend[u];
+    CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
+    if (!(unhealthy = vbit_test(vd->vbm, u)))
+      nh++;
+
+    if (pflag) {
+      range = u+1 >= vd->n_backend ? 0xffff : last_range + (vd->weight[u] / tw) * 0xffff;
+      if (jflag) {
+        if (u)
+          VSB_cat(vsb, ",\n");
+        VSB_printf(vsb, "\"%s\": {\n", be->vcl_name);
+        VSB_indent(vsb, 2);
+        if (unhealthy)
+          VSB_cat(vsb, "\"health\": \"sick\",\n");
+        else
+          VSB_cat(vsb, "\"health\": \"healthy\",\n");
+        VSB_printf(vsb, "\"range\": \"%04x-%04x\"\n", last_range, range);
+        VSB_indent(vsb, -2);
+        VSB_cat(vsb, "}");
+      } else {
+        VSB_cat(vsb, "\t");
+        VSB_cat(vsb, be->vcl_name);
+        VSB_printf(vsb, "\t%04x-%04x\t", last_range, range);
+        VSB_cat(vsb, unhealthy ? "sick" : "healthy");
+        VSB_cat(vsb, "\n");
+      }
+      last_range = range + 1;
+    }
+  }
+  u = vd->n_backend;
+  vdir_unlock(vd);
+
+  if (jflag && pflag) {
+    VSB_cat(vsb, "\n");
+    VSB_indent(vsb, -2);
+    VSB_cat(vsb, "}\n");
+    VSB_indent(vsb, -2);
+    VSB_cat(vsb, "},\n");
+  }
+
+  if (pflag)
+    return;
+
+  if (jflag)
+    VSB_printf(vsb, "[%u, %u, \"%s\"]", nh, u, nh ? "healthy" : "sick");
+  else
+    VSB_printf(vsb, "%u/%u\t%s", nh, u, nh ? "healthy" : "sick");
+}
+
 VCL_BACKEND
 vdir_pick_be(VRT_CTX, struct vdir *vd, double w)
 {
@@ -213,13 +310,7 @@ vdir_pick_be(VRT_CTX, struct vdir *vd, double w)
   VCL_BACKEND be = NULL;
 
   vdir_rdlock(vd);
-  for (u = 0; u < vd->n_backend; u++) {
-    if (VRT_Healthy(ctx, vd->backend[u], NULL)) {
-      vbit_clr(vd->vbm, u);
-      tw += vd->weight[u];
-    } else
-      vbit_set(vd->vbm, u);
-  }
+  vdir_update_health(ctx, vd, &tw);
   if (tw > 0.0) {
     u = vdir_pick_by_weight(vd, w * tw, vd->vbm);
     assert(u < vd->n_backend);
